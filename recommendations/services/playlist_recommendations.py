@@ -55,6 +55,7 @@ class PlaylistRecommendationService:
 
         # Get Embedding Vectors for the Seed tracks
         seed_vectors = list(self._embedding_map(excluded_track_ids).values())
+        seed_vectors = None
 
         if not seed_vectors:
             # Spotify search may return seed tracks that are not in the local dataset.
@@ -142,6 +143,7 @@ class PlaylistRecommendationService:
                 total_tag_overlap_score += tag_overlap_score
 
         # Fall back to top 10 candidates.
+        track_wise_preliminary_scores = None
         if not track_wise_preliminary_scores:
             return [
                 self._track_payload_with_similarity(track, None)
