@@ -3,10 +3,10 @@ from django.core.cache import cache
 import requests
 import os
 
-client_id = os.environ.get("SPOTIFY_CLIENT_ID", "7de9fa98469e43d5a7d4e2eb40ac53bb")
-client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "8c90a046ed69448f8c6aacf39d839b14")
+client_id = os.environ.get('SPOTIFY_CLIENT_ID')
+client_secret = os.environ.get('SPOTIFY_CLIENT_SECRET')
 
-cache_key = f'spotify_access_token:{client_id}:{client_secret}'
+cache_key = f'spotify_access_token:{client_id}'
 
 from recommendations.models import SpotifyTrack
 
@@ -43,6 +43,8 @@ class SearchTrackService:
 
     @staticmethod
     def get_access_token():
+        if not client_id or not client_secret:
+            raise RuntimeError('Spotify credentials are not configured')
 
         # Try to get access token from the cache
         access_token = cache.get(cache_key)
@@ -54,7 +56,8 @@ class SearchTrackService:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 data={'grant_type': 'client_credentials',
                     'client_id': client_id,
-                    'client_secret': client_secret})
+                    'client_secret': client_secret},
+                timeout=5)
 
             response_data.raise_for_status()
 
@@ -67,7 +70,7 @@ class SearchTrackService:
             # Set access token expiry with a 5 minutes buffer, so we get a new access token 5 minutes
             # before it expires
             access_token_buffer = 300
-            expires_in_with_5_minute_buffer = expires_in - access_token_buffer
+            expires_in_with_5_minute_buffer = max(1, expires_in - access_token_buffer)
 
             # Setting the access token in cache with expiry
             cache.set(cache_key, access_token, timeout=expires_in_with_5_minute_buffer)
@@ -86,10 +89,11 @@ class SearchTrackService:
             'https://api.spotify.com/v1/search',
             headers=custom_headers,
             params={"q": search_input, "type": "track", "market": "ES"},
+            timeout=5,
         )
 
+        response.raise_for_status()
         # Convert Response to json
         data = response.json()
 
         return data
-

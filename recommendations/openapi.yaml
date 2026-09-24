@@ -1,229 +1,140 @@
 openapi: 3.0.3
 info:
-  title: Rize Music Recommender API
-  version: 1.0.0
-  description: Contract used by the static frontend and the Django recommender backend.
-servers:
-  - url: http://127.0.0.1:8000
-    description: Local Django server
+  title: Music Recommender API
+  version: 1.1.0
+  description: Public endpoints; requests are rate limited per client IP.
 paths:
   /search/:
     get:
-      summary: Search Spotify tracks
-      description: Returns the small track shape needed by the seed-song picker.
+      summary: Search Spotify tracks in the local catalog
       parameters:
-        - name: q
+        - name: query
           in: query
-          required: false
+          required: true
           schema:
             type: string
-            default: Hello
-          description: Search text from the frontend search box.
+            minLength: 1
+            maxLength: 100
       responses:
-        "200":
-          description: Tracks returned from Spotify search.
-          headers:
-            Access-Control-Allow-Origin:
-              schema:
-                type: string
-              example: "*"
+        '200':
+          description: Matching tracks available in the local catalog.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/SearchTrack"
-              example:
-                - track_id: 65FftemJ1DbbZ45DUfHJXE
-                  track_name: OMG
-                  artist_names: NewJeans
+                  $ref: '#/components/schemas/SearchTrack'
+        '400':
+          description: Invalid or missing query.
+        '429':
+          description: Request rate limit exceeded.
+        '503':
+          description: Spotify search is temporarily unavailable.
   /:
+    get:
+      summary: Serve the music recommender frontend
+      responses:
+        '200':
+          description: The main HTML page.
+          content:
+            text/html:
+              schema:
+                type: string
     post:
-      summary: Generate music recommendations
-      description: Instantly generate personalized playlist based on the user's preferences.
-      parameters:
-        - name: Accept
-          in: header
-          required: false
-          schema:
-            type: string
-            enum:
-              - application/json
-          # description: The frontend sends this so Django returns JSON instead of rendering the template.
+      summary: Generate up to ten recommendations
       requestBody:
         required: true
         content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: "#/components/schemas/GetPersonalizedPlaylistRequest"
+              $ref: '#/components/schemas/RecommendationRequest'
             encoding:
               track_ids:
                 style: form
                 explode: true
-              genre:
+              genres:
                 style: form
                 explode: true
-            examples:
-              frontendForm:
-                summary: Payload sent by music_form.js
-                value:
-                  track_ids:
-                    - 36rhmqOf2hGlJ4tg2REbAS
-                    - 1w2hClDL1xH4FPZIipZ1FJ
-                  genre:
-                    - k-pop
-                    - pop
-                  mood: happy
-                  start_year: 2000
-                  end_year: 2020
       responses:
-        "200":
-          description: Playlist recommendations, or validation errors if the form input is invalid.
-          headers:
-            Access-Control-Allow-Origin:
-              schema:
-                type: string
-              example: "*"
+        '200':
+          description: Recommended tracks; an empty array means no matches.
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    required:
-                      - result
-                    properties:
-                      result:
-                        type: array
-                        maxItems: 10
-                        items:
-                          $ref: "#/components/schemas/PlaylistTrack"
-                  - type: object
-                    required:
-                      - errors
-                    properties:
-                      errors:
-                        type: object
-                        additionalProperties: true
-              example:
-                result:
-                  - track_id: 32Ron8UKy1My0dA5NG0gv5
-                    track_name: Mr. Taxi - Korean Version, Live
-                    title: Mr. Taxi - Korean Version, Live
-                    artist_names: Girls' Generation
-                    artist: Girls' Generation
-                    duration_ms: 213107
-                    duration: "3:33"
-                    genre: k-pop
-                    year: 2013
-                    similarity_score: 0.9876
+                type: array
+                maxItems: 10
+                items:
+                  $ref: '#/components/schemas/PlaylistTrack'
+        '400':
+          description: Invalid request fields.
+        '429':
+          description: Request rate limit exceeded.
 components:
   schemas:
-    SearchTrack:
+    RecommendationRequest:
       type: object
-      required:
-        - track_id
-        - track_name
-        - artist_name
-        - genre
-      properties:
-        track_id:
-          type: string
-          description: Spotify track ID used as the seed-song identifier.
-          example: 65FftemJ1DbbZ45DUfHJXE
-        track_name:
-          type: string
-          example: OMG
-        artist_name:
-          type: string
-          description: Comma-separated artist names from Spotify.
-          example: NewJeans
-        genre:
-          type: string
-          description: Track's genre Spotify.
-          example: Pop
-    GetPersonalizedPlaylistRequest:
-      type: object
-      required:
-        - mood
+      required: [mood, start_year, end_year]
       properties:
         track_ids:
           type: array
-          minItems: 1
           maxItems: 2
+          uniqueItems: true
           items:
             type: string
-          description: Repeated form field. These seed tracks are excluded from the result.
-        genre:
+            pattern: '^[A-Za-z0-9]{22}$'
+        genres:
           type: array
+          maxItems: 10
           items:
             type: string
-          description: Repeated form field. Values should match dataset genre slugs such as k-pop or deep-house.
+            maxLength: 50
         mood:
           type: string
-          enum:
-            - happy
-            - neutral
-            - sad
-          description: Backend maps this to a mood score from normalized tempo, danceability, and valence.
+          enum: [happy, neutral, sad]
         start_year:
           type: integer
           minimum: 1900
-          maximum: 2100
-          nullable: true
-          description: Inclusive lower bound for track year.
         end_year:
           type: integer
           minimum: 1900
-          maximum: 2100
-          nullable: true
-          description: Inclusive upper bound for track year.
-    PlaylistTrack:
+          description: Must be greater than or equal to start_year. Both years cannot exceed the current year.
+    SearchTrack:
       type: object
-      required:
-        - track_id
-        - track_name
-        - title
-        - artist_names
-        - artist
-        - duration_ms
-        - duration
-        - genre
-        - year
-        - similarity_score
+      required: [track_id, track_name, artist_name, genre]
       properties:
         track_id:
           type: string
-          example: 32Ron8UKy1My0dA5NG0gv5
         track_name:
           type: string
-          example: Mr. Taxi - Korean Version, Live
-        title:
+        artist_name:
           type: string
-          description: Same value as track_name. Kept because the frontend renderer uses title.
-          example: Mr. Taxi - Korean Version, Live
-        artist_names:
-          type: string
-          example: Girls' Generation
-        artist:
-          type: string
-          description: Same value as artist_names. Kept because the frontend renderer uses artist.
-          example: Girls' Generation
-        duration_ms:
-          type: integer
-          example: 213107
-        duration:
-          type: string
-          pattern: "^\\d+:\\d{2}$"
-          example: "3:33"
         genre:
           type: string
-          example: k-pop
+    PlaylistTrack:
+      type: object
+      required: [track_id, track_name, title, artist_names, artist, duration_ms, duration, genre, year, similarity_score]
+      properties:
+        track_id:
+          type: string
+        track_name:
+          type: string
+        title:
+          type: string
+        artist_names:
+          type: string
+        artist:
+          type: string
+        duration_ms:
+          type: integer
+        duration:
+          type: string
+        genre:
+          type: string
         year:
           type: integer
-          example: 2013
         similarity_score:
           type: number
-          format: float
           nullable: true
-          description: Cosine similarity to the selected seed-track centroid. Null when seed embeddings are unavailable and fallback ranking is used.
-          example: 0.9876

@@ -1,0 +1,125 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rize Music Recommender</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'styles.css' %}">
+  <script src="{% static 'music_form.js' %}" defer></script>
+</head>
+
+<body>
+  <main class="page-shell">
+    <div class="page-title">
+      <h1 style="color: #ffffff">NextTrack Music Recommender</h1>
+      <p style="color: #EDDDDD">Generate a personalized playlist instantly ⚡</p>
+    </div>
+
+    <form id="playlistForm" class="stack" action="/" method="post">
+      {% csrf_token %}
+      <section class="card" aria-labelledby="seed-title">
+        <div class="section-title">
+          <h2 id="seed-title">Seed Songs</h2>
+          <p>Choose 1 or 2 songs to start from</p>
+        </div>
+
+        <div class="search-wrap">
+          <label class="sr-only" for="songName">Search for a song or artist</label>
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-3.5-3.5"></path>
+            </svg>
+            <input id="songName" type="search" placeholder="Search song or artist" autocomplete="off">
+            <button id="searchButton" type="button">Search</button>
+          </div>
+          <div id="searchResults" class="search-results" hidden></div>
+        </div>
+
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+
+        <div class="selected-block">
+          <p class="meta-label">Selected</p>
+          <div id="selectedSongs" class="selected-grid">
+            <button class="empty-slot" type="button" data-focus-search>Add your first song</button>
+            <button class="empty-slot" type="button" data-focus-search>Add a second song</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="preferences-title">
+        <h2 id="preferences-title">Your Preferences</h2>
+
+        <div class="form-field">
+          <label for="genreInput">Genre</label>
+          <div class="genre-picker" id="genrePicker">
+            <button class="genre-trigger" id="genreTrigger" type="button" aria-expanded="false">
+              <span id="genreChips" class="chips"></span>
+              <span class="placeholder" id="genrePlaceholder">Select genres...</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 9 6 6 6-6"></path>
+              </svg>
+            </button>
+            <div class="genre-menu" id="genreMenu" hidden>
+              <input id="genreInput" type="search" placeholder="Filter genres..." autocomplete="off">
+              <div id="genreOptions" class="genre-options"></div>
+              <button id="clearGenres" class="clear-button" type="button">Clear all</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <div class="range-header">
+            <label for="eraStart">Era</label>
+            <span id="eraLabel">2000 - 2020</span>
+          </div>
+          <div class="range-row dual-range">
+            <input id="eraStart" name="start_year" type="range" min="1970" max="2024" value="2000"
+              aria-label="Era start year">
+            <input id="eraEnd" name="end_year" type="range" min="1970" max="2024" value="2020"
+              aria-label="Era end year">
+          </div>
+        </div>
+
+        <div class="form-field">
+          <span class="field-label">Mood</span>
+          <div class="segmented-control" role="radiogroup" aria-label="Mood">
+            <label><input type="radio" name="mood" value="happy" checked><span>Happy</span></label>
+            <label><input type="radio" name="mood" value="neutral"><span>Neutral</span></label>
+            <label><input type="radio" name="mood" value="sad"><span>Sad</span></label>
+          </div>
+        </div>
+
+      </section>
+
+      <button class="generate-button" id="generate-button" type="submit">Make Playlist</button>
+    </form>
+
+    <section id="playlistSection" class="card playlist-card" hidden aria-labelledby="playlist-title">
+      <div class="section-title">
+        <h2 id="playlist-title">Your Playlist</h2>
+        <p id="playlistSummary">Based on your taste</p>
+      </div>
+      <ol id="playlistList" class="playlist-list"></ol>
+    </section>
+
+    <section id="spotifyPlayer" class="spotify-player" hidden aria-labelledby="spotify-player-title">
+      <div>
+        <h2 id="spotify-player-title">Now Playing</h2>
+        <p id="spotifyPlayerLabel">Choose a song from your playlist.</p>
+      </div>
+      <iframe id="spotifyEmbed" title="Spotify player" width="100%" height="152" frameborder="0"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+      </iframe>
+    </section>
+  </main>
+</body>
+
+</html>
