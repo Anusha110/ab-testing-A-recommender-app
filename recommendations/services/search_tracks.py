@@ -2,9 +2,19 @@
 from django.core.cache import cache
 import requests
 import os
+import logging
 
 client_id = os.environ.get('SPOTIFY_CLIENT_ID')
 client_secret = os.environ.get('SPOTIFY_CLIENT_SECRET')
+logger = logging.getLogger(__name__)
+
+
+def _masked_client_id(value):
+    if not value:
+        return '<missing>'
+    if len(value) <= 8:
+        return '****'
+    return f'{value[:4]}...{value[-4:]}'
 
 cache_key = f'spotify_access_token:{client_id}'
 
@@ -43,6 +53,13 @@ class SearchTrackService:
 
     @staticmethod
     def get_access_token():
+        logger.warning(
+            'Spotify configuration: client_id=%s client_id_present=%s client_secret_present=%s client_secret_length=%s',
+            _masked_client_id(client_id),
+            bool(client_id),
+            bool(client_secret),
+            len(client_secret or ''),
+        )
         if not client_id or not client_secret:
             raise RuntimeError('Spotify credentials are not configured')
 
@@ -92,7 +109,11 @@ class SearchTrackService:
             timeout=5,
         )
 
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError:
+            logger.exception('Spotify search returned HTTP status %s', response.status_code)
+            raise
         # Convert Response to json
         data = response.json()
 
